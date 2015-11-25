@@ -9,6 +9,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
 #include <linux/battery/sec_battery.h>
 #if defined(CONFIG_SENSORS_QPNP_ADC_VOLTAGE)
 #include <linux/qpnp/qpnp-adc.h>
