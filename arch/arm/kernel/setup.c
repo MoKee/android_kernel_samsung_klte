@@ -633,7 +633,8 @@ static int __init msm_hw_name_setup(char *p)
 	    !strncmp(hardware_name, "SM-G900K", 8) ||
 	    !strncmp(hardware_name, "SM-G900L", 8)) {
 		hardware_type = 1;
-	} else if (!strncmp(hardware_name, "SM-G900J", 8)) {
+	} else if (!strncmp(hardware_name, "SM-G900J", 8) ||
+		   !strncmp(hardware_name, "SM-G900D", 8)) {
 		hardware_type = 2;
 	}
 
