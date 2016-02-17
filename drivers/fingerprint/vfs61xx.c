@@ -166,6 +166,18 @@ static int dataToRead;
 
 int vfsspi_enable_irq(struct vfsspi_devData *vfsSpiDev)
 {
+#if defined(CONFIG_MACH_K3GDUOS_CTC)
+	unsigned long flags;
+
+	if (vfsSpiDev->drdy_irq_flag == DRDY_IRQ_ENABLE)
+		return -EINVAL;
+
+	spin_lock_irqsave(&vfsSpiDev->irq_lock,flags);
+	enable_irq(gpio_irq);
+	vfsSpiDev->drdy_irq_flag = DRDY_IRQ_ENABLE;
+	spin_unlock_irqrestore(&vfsSpiDev->irq_lock,flags);
+	pr_info("%s\n", __func__);
+#else
 	if (vfsSpiDev->drdy_irq_flag == DRDY_IRQ_ENABLE)
 		return -EINVAL;
 
@@ -174,12 +186,24 @@ int vfsspi_enable_irq(struct vfsspi_devData *vfsSpiDev)
 	vfsSpiDev->drdy_irq_flag = DRDY_IRQ_ENABLE;
 	spin_unlock(&vfsSpiDev->irq_lock);
 	pr_info("%s\n", __func__);
-
+#endif
 	return 0;
 }
 
 int vfsspi_disable_irq(struct vfsspi_devData *vfsSpiDev)
 {
+#if defined(CONFIG_MACH_K3GDUOS_CTC)
+	unsigned long flags;
+
+	if (vfsSpiDev->drdy_irq_flag == DRDY_IRQ_DISABLE)
+		return -EINVAL;
+
+	spin_lock_irqsave(&vfsSpiDev->irq_lock,flags);
+	disable_irq_nosync(gpio_irq);
+	vfsSpiDev->drdy_irq_flag = DRDY_IRQ_DISABLE;
+	spin_unlock_irqrestore(&vfsSpiDev->irq_lock,flags);
+	pr_info("%s\n", __func__);
+#else
 	if (vfsSpiDev->drdy_irq_flag == DRDY_IRQ_DISABLE)
 		return -EINVAL;
 
@@ -188,7 +212,7 @@ int vfsspi_disable_irq(struct vfsspi_devData *vfsSpiDev)
 	vfsSpiDev->drdy_irq_flag = DRDY_IRQ_DISABLE;
 	spin_unlock(&vfsSpiDev->irq_lock);
 	pr_info("%s\n", __func__);
-
+#endif
 	return 0;
 }
 
