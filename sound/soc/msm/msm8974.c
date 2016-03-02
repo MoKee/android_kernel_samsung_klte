@@ -2027,6 +2027,17 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			goto out;
 		}
 	}
+#else
+	/* start mbhc */
+	mbhc_cfg.calibration = def_taiko_mbhc_cal();
+	if (mbhc_cfg.calibration) {
+		err = taiko_hs_detect(codec, &mbhc_cfg);
+		if (err)
+			goto out;
+	} else {
+		err = -ENOMEM;
+		goto out;
+	}
 #endif
 	adsp_state_notifier =
 	    subsys_notif_register_notifier("adsp",

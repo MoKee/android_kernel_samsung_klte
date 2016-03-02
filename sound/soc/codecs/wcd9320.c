@@ -7375,6 +7375,16 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
             goto err_init;
         }
 	}
+#else
+	/* init and start mbhc */
+	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+				taiko_enable_mbhc_micbias,
+				&mbhc_cb, &cdc_intr_ids,
+				rco_clk_rate, false);
+	if (ret) {
+		pr_err("%s: mbhc init failed %d\n", __func__, ret);
+		goto err_init;
+	}
 #endif
 
 	taiko->codec = codec;
@@ -7537,6 +7547,9 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 	{
 		wcd9xxx_mbhc_deinit(&taiko->mbhc);
 	}
+#else
+	/* cleanup MBHC */
+	wcd9xxx_mbhc_deinit(&taiko->mbhc);
 #endif
 	/* cleanup resmgr */
 	wcd9xxx_resmgr_deinit(&taiko->resmgr);
