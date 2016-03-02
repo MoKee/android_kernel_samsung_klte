@@ -2011,17 +2011,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			err = -ENOMEM;
 			goto out;
 		}
-	} else {
-		/* start mbhc */
-		mbhc_cfg.calibration = def_taiko_mbhc_cal();
-		if (mbhc_cfg.calibration) {
-			err = taiko_hs_detect(codec, &mbhc_cfg);
-			if (err)
-				goto out;
-		} else {
-			err = -ENOMEM;
-			goto out;
-		}
 	}
 #elif defined(CONFIG_SEC_JACTIVE_PROJECT)
 	pr_info("2. msm_audrx_init system_rev %d",system_rev);
