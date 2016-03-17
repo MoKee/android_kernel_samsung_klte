@@ -219,25 +219,6 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_suspend_store),
 };
 
-//KT specifics
-extern void hotplugap_boostpulse(void);
-#include <linux/wakelock.h>
-#include <linux/kt_wake_funcs.h>
-#include <linux/pm.h>
-#include <linux/pm_runtime.h>
-#define RESET_SLEEPER	5
-int SYN_I2C_RETRY_TIMES = 10;
-int GPIO_CFG_KT = GPIO_CFG_2MA;
-static struct delayed_work lockout_touch_work;
-static bool lockout_touch_work_done = false;
-static struct wake_lock wakelock;
-
-static void lockout_touch_work_func(struct work_struct *work)
-{
-	wake_lock(&wakelock);
-	lockout_touch_work_done = false;
-}
-
 #ifdef READ_LCD_ID
 static int synaptics_lcd_id;
 static int __init synaptics_read_lcd_id(char *mode)
@@ -425,8 +406,8 @@ static void synaptics_request_gpio(struct synaptics_rmi4_data *rmi4_data)
 			return;
 		}
 	}
-	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
-	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
+	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
+	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 
 	if (rmi4_data->dt_data->id_gpio > 0) {
 		ret = gpio_request(rmi4_data->dt_data->id_gpio, "synaptics,id-gpio");
@@ -1260,37 +1241,17 @@ static int synaptics_rmi4_set_page(struct synaptics_rmi4_data *rmi4_data,
 					return retval;
 				}
 				dev_err(&i2c->dev,
-						"%s: I2C retry = %d, i2c_master_send retval = %d %d %d\n",
-						__func__, retry + 1, retval, screen_is_off, doubletap_when_off);
+						"%s: I2C retry = %d, i2c_master_send retval = %d\n",
+						__func__, retry + 1, retval);
 				if (retval == 0)
 					retval = -EAGAIN;
-				if (doubletap_wake)
-				{
-					pm_runtime_resume(&rmi4_data->i2c_client->dev);
-					if (!lockout_touch_work_done)
-					{
-						wake_lock(&wakelock);
-						disable_irq_wake(rmi4_data->i2c_client->irq);
-						msleep(20);
-						enable_irq_wake(rmi4_data->i2c_client->irq);
-						//lockout_touch_work_done = true;
-						//schedule_delayed_work_on(0, &lockout_touch_work, msecs_to_jiffies(RESET_SLEEPER));
-					}
-					rmi4_data->current_page = page;
-					break;
-				}
-				else
-					msleep(20);
+				msleep(20);
 			} else {
-				if (doubletap_wake)
-					wake_unlock(&wakelock);
 				rmi4_data->current_page = page;
 				break;
 			}
 		}
 	} else {
-		if (doubletap_wake)
-			wake_unlock(&wakelock);
 		retval = PAGE_SELECT_LEN;
 	}
 
@@ -1346,30 +1307,11 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
 		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 2) == 2) {
 			retval = length;
-			if (doubletap_wake)
-				wake_unlock(&wakelock);
 			break;
 		}
-		dev_err(&rmi4_data->i2c_client->dev, "%s: I2C retry %d %d %d\n",
-				__func__, retry + 1, screen_is_off, doubletap_when_off);
-
-		if (doubletap_wake)
-		{
-			pm_runtime_resume(&rmi4_data->i2c_client->dev);
-			if (!lockout_touch_work_done)
-			{
-				wake_lock(&wakelock);
-				disable_irq_wake(rmi4_data->i2c_client->irq);
-				msleep(20);
-				enable_irq_wake(rmi4_data->i2c_client->irq);
-				//lockout_touch_work_done = true;
-				//schedule_delayed_work_on(0, &lockout_touch_work, msecs_to_jiffies(RESET_SLEEPER));
-			}
-			retval = length;
-			break;
-		}
-		else
-			msleep(20);
+		dev_err(&rmi4_data->i2c_client->dev, "%s: I2C retry %d\n",
+				__func__, retry + 1);
+		msleep(20);
 	}
 
 	if (retry == SYN_I2C_RETRY_TIMES) {
@@ -1428,30 +1370,12 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
 		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 1) == 1) {
 			retval = length;
-			if (doubletap_wake)
-				wake_unlock(&wakelock);
 			break;
 		}
 		dev_err(&rmi4_data->i2c_client->dev,
-				"%s: I2C retry %d %d %d\n",
-				__func__, retry + 1, screen_is_off, doubletap_when_off);
-		if (doubletap_wake)
-		{
-			pm_runtime_resume(&rmi4_data->i2c_client->dev);
-			if (!lockout_touch_work_done)
-			{
-				wake_lock(&wakelock);
-				disable_irq_wake(rmi4_data->i2c_client->irq);
-				msleep(20);
-				enable_irq_wake(rmi4_data->i2c_client->irq);
-				//lockout_touch_work_done = true;
-				//schedule_delayed_work_on(0, &lockout_touch_work, msecs_to_jiffies(RESET_SLEEPER));
-			}
-			retval = length;
-			break;
-		}
-		else
-			msleep(20);
+				"%s: I2C retry %d\n",
+				__func__, retry + 1);
+		msleep(20);
 	}
 
 	if (retry == SYN_I2C_RETRY_TIMES) {
@@ -1803,11 +1727,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_report_abs(rmi4_data->input_dev,
 					ABS_MT_TOUCH_MINOR, min(wx, wy));
 #endif
-
-			// ***** KT WAKE AND SLEEP OPTIONS *****
-			if (screen_is_off && doubletap_wake)
-				check_touch_off(x, y, rmi4_data->finger[finger].state, touch_count);
-			// ***** KT WAKE AND SLEEP OPTIONS *****
 
 			if (!rmi4_data->finger[finger].state) {
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
@@ -2386,7 +2305,6 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to read interrupt status\n",
 				__func__);
-		synaptics_rmi4_free_fingers(rmi4_data);
 		return retval;
 	}
 
@@ -4558,9 +4476,7 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 
 	mutex_lock(&(rmi4_data->rmi4_reset_mutex));
 
-	pr_alert("RESET DEVICE\n");
-	if (!doubletap_wake)
-		disable_irq(rmi4_data->i2c_client->irq);
+	disable_irq(rmi4_data->i2c_client->irq);
 
 	synaptics_rmi4_free_fingers(rmi4_data);
 
@@ -4625,8 +4541,7 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 #endif
 
 out:
-	if (!doubletap_wake)
-		enable_irq(rmi4_data->i2c_client->irq);
+	enable_irq(rmi4_data->i2c_client->irq);
 	mutex_unlock(&(rmi4_data->rmi4_reset_mutex));
 
 	return 0;
@@ -4972,7 +4887,7 @@ void synaptics_power_ctrl(struct synaptics_rmi4_data *rmi4_data, bool enable)
 
 	if (rmi4_data->dt_data->id_gpio > 0) {
 		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->id_gpio, 0,
-			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
+			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 	}
 
 	return;
@@ -5260,14 +5175,6 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->i2c_client = client;
 	rmi4_data->current_page = MASK_8BIT;
 
-	retval = pm_runtime_set_active(&rmi4_data->i2c_client->dev);
-	if (retval < 0)
-		pr_alert("KT_PM unable to set runtime pm state\n");
-	pm_runtime_enable(&rmi4_data->i2c_client->dev);
-	device_init_wakeup(&rmi4_data->i2c_client->dev, true);
-	INIT_DELAYED_WORK(&lockout_touch_work, lockout_touch_work_func);
-	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "kt_wake_funcs");
-
 	rmi4_data->touch_stopped = false;
 	rmi4_data->sensor_sleep = false;
 	rmi4_data->irq_enabled = false;
@@ -5381,8 +5288,6 @@ err_tsp_reboot:
 			goto err_sysfs;
 		}
 	}
-	wake_funcs_sysfs(rmi4_data, client);
-	wake_funcs_init();
 
 	synaptics_get_firmware_name(rmi4_data);
 	retval = synaptics_rmi4_fw_update_on_probe(rmi4_data);
@@ -5741,23 +5646,11 @@ static int synaptics_rmi4_stop_device(struct synaptics_rmi4_data *rmi4_data)
 				__func__);
 		goto out;
 	}
-	pr_alert("STOP DEVICE\n");
-	screen_is_off = true;
 
-	if (wake_options_okto_enable())
-	{
-		enable_irq_wake(rmi4_data->i2c_client->irq);
-		doubletap_when_off = doubletap_wake;
-	}
-	else
-	{
-		disable_irq(rmi4_data->i2c_client->irq);
-		rmi4_data->touch_stopped = true;
-		synaptics_power_ctrl(rmi4_data, false);
-		doubletap_when_off = 0;
-	}
-
+	disable_irq(rmi4_data->i2c_client->irq);
 	synaptics_rmi4_free_fingers(rmi4_data);
+	rmi4_data->touch_stopped = true;
+	synaptics_power_ctrl(rmi4_data, false);
 
 	dev_dbg(&rmi4_data->i2c_client->dev, "%s\n", __func__);
 
@@ -5771,10 +5664,7 @@ static int synaptics_rmi4_start_device(struct synaptics_rmi4_data *rmi4_data)
 	int retval = 0;
 	mutex_lock(&rmi4_data->rmi4_device_mutex);
 
-	pr_alert("START DEVICE\n");
-	screen_is_off = false;
-
-	if (!rmi4_data->touch_stopped && !doubletap_when_off) {
+	if (!rmi4_data->touch_stopped) {
 		dev_err(&rmi4_data->i2c_client->dev, "%s already power on\n",
 				__func__);
 		goto out;
@@ -5807,12 +5697,7 @@ static int synaptics_rmi4_start_device(struct synaptics_rmi4_data *rmi4_data)
 		synaptics_charger_conn(rmi4_data, rmi4_data->ta_status);
 #endif
 
-	if (doubletap_when_off)
-	{
-		disable_irq_wake(rmi4_data->i2c_client->irq);
-	}
-	else
-		enable_irq(rmi4_data->i2c_client->irq);
+	enable_irq(rmi4_data->i2c_client->irq);
 
 	dev_dbg(&rmi4_data->i2c_client->dev, "%s\n", __func__);
 
@@ -5828,10 +5713,9 @@ static int synaptics_rmi4_input_open(struct input_dev *dev)
 	int retval;
 
 	dev_info(&rmi4_data->i2c_client->dev, "%s %s\n", __func__, rmi4_data->use_deepsleep ? "wakeup" : "");
-	pr_alert("INPUT OPEN - %s\n", rmi4_data->use_deepsleep ? "deepsleep" : "");
 
-	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
-	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
+	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
+	gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 	if (rmi4_data->use_deepsleep) {
 		synaptics_rmi4_sensor_wake(rmi4_data);
 	} else {
@@ -5849,19 +5733,15 @@ static void synaptics_rmi4_input_close(struct input_dev *dev)
 	struct synaptics_rmi4_data *rmi4_data = input_get_drvdata(dev);
 
 	dev_info(&rmi4_data->i2c_client->dev, "%s %s\n", __func__, rmi4_data->use_deepsleep ? "deepsleep" : "");
-	pr_alert("INPUT CLOSE - %s\n", rmi4_data->use_deepsleep ? "deepsleep" : "");
+
 	if (rmi4_data->use_deepsleep) {
 		synaptics_rmi4_sensor_sleep(rmi4_data);
-		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
-		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_KT), 1);
-
+		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
+		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 3, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 	} else {
 		synaptics_rmi4_stop_device(rmi4_data);
-		if (!doubletap_wake)
-		{
-			gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_KT), 1);
-			gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_KT), 1);
-		}
+		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->scl_gpio, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 1);
+		gpio_tlmm_config(GPIO_CFG(rmi4_data->dt_data->sda_gpio, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 1);
 	}
 }
 #endif
