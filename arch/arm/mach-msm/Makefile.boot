@@ -65,7 +65,14 @@ endif
 	dtb-$(CONFIG_SEC_VIENNA_PROJECT)	+= msm8974-sec-viennalte-r10.dtb
 	dtb-$(CONFIG_SEC_VIENNA_PROJECT)	+= msm8974-sec-viennalte-r12.dtb
 ifeq ($(CONFIG_SEC_K_PROJECT),y)
-    ifeq ($(CONFIG_MACH_K3GDUOS_CTC),y)
+    ifeq ($(CONFIG_MACH_KLTE_KOR),y)
+        # dtbs for KOR
+        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r07.dtb
+        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r08.dtb
+        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r09.dtb
+        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r13.dtb
+        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r14.dtb
+    else ifeq ($(CONFIG_MACH_K3GDUOS_CTC),y)
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kctc-r03.dtb
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kctc-r04.dtb
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kctc-r05.dtb
@@ -106,12 +113,6 @@ ifeq ($(CONFIG_SEC_K_PROJECT),y)
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-k-r07.dtb
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-k-r08.dtb
         dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-k-r14.dtb
-        # dtbs for KOR
-        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r07.dtb
-        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r08.dtb
-        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r09.dtb
-        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r13.dtb
-        dtb-$(CONFIG_SEC_K_PROJECT)	+= msm8974pro-ac-sec-kkor-r14.dtb
     endif
 endif
 ifeq ($(CONFIG_SEC_S_PROJECT),y)
